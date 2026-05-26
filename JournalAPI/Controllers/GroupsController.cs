@@ -83,15 +83,25 @@ namespace JournalApi.Controllers
             connection.Open();
 
             var command = connection.CreateCommand();
+
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (userId == null)
+                return Unauthorized();
+
             command.CommandText = @"
         SELECT j.id, s.name AS subject
         FROM Journals j
         JOIN Subjects s ON j.subject_id = s.id
         WHERE j.group_id = $groupId
+        AND j.user_id = $userId
     ";
+
             command.Parameters.AddWithValue("$groupId", groupId);
+            command.Parameters.AddWithValue("$userId", userId);
 
             using var reader = command.ExecuteReader();
+
             while (reader.Read())
             {
                 journals.Add(new

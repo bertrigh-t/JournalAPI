@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
+using System.Security.Claims;
 
 namespace JournalApi.Controllers
 {
@@ -42,6 +43,10 @@ namespace JournalApi.Controllers
 
             using var connection = new SqliteConnection("Data Source=Data/диплом.db");
             connection.Open();
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (userId == null)
+                return Unauthorized();
 
             var command = connection.CreateCommand();
             command.CommandText = @"
@@ -53,10 +58,17 @@ namespace JournalApi.Controllers
                 FROM Attendance a
                 JOIN Students st ON a.student_id = st.id
                 WHERE a.journal_id = $journalId
+AND EXISTS (
+    SELECT 1
+    FROM Journals j
+    WHERE j.id = a.journal_id
+    AND j.user_id = $userId
+)
                 ORDER BY st.name, a.date DESC
             ";
 
             command.Parameters.AddWithValue("$journalId", journalId);
+            command.Parameters.AddWithValue("$userId", userId);
 
             using var reader = command.ExecuteReader();
 
