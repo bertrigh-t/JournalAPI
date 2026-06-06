@@ -85,6 +85,44 @@ AND EXISTS (
 
             return Ok(attendance);
         }
+
+        [Authorize(Roles = "teacher")]
+        [HttpPut("{id}")]
+        public IActionResult UpdateAttendance(int id, [FromBody] UpdateAttendanceRequest request)
+        {
+            using var connection = new SqliteConnection("Data Source=Data/диплом.db");
+            connection.Open();
+
+            var command = connection.CreateCommand();
+            command.CommandText = @"
+        UPDATE Attendance
+        SET status = $status,
+            date = $date
+        WHERE id = $id
+    ";
+
+            command.Parameters.AddWithValue("$id", id);
+            command.Parameters.AddWithValue("$status", request.Status);
+            command.Parameters.AddWithValue("$date",
+    string.IsNullOrWhiteSpace(request.Date)
+        ? DateTime.Now.ToString("yyyy-MM-dd")
+        : request.Date
+);
+
+            var rows = command.ExecuteNonQuery();
+
+            if (rows == 0)
+                return NotFound("Посещаемость не найдена");
+
+            return Ok(new { message = "Посещаемость обновлена" });
+        }
+
+        public class UpdateAttendanceRequest
+        {
+            public string Status { get; set; } = "";
+            public string Date { get; set; } = "";
+        }
+
     }
 
     public class AddAttendanceRequest

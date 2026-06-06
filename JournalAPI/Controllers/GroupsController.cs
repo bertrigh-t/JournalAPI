@@ -75,7 +75,7 @@ namespace JournalApi.Controllers
         }
         [Authorize(Roles = "teacher")]
         [HttpGet("{groupId}/journals")]
-        public IActionResult GetJournals(int groupId)
+        public IActionResult GetJournals(int groupId, int semesterId)
         {
             var journals = new List<object>();
 
@@ -94,11 +94,13 @@ namespace JournalApi.Controllers
         FROM Journals j
         JOIN Subjects s ON j.subject_id = s.id
         WHERE j.group_id = $groupId
+        AND j.semester_id = $semesterId
         AND j.user_id = $userId
     ";
 
             command.Parameters.AddWithValue("$groupId", groupId);
             command.Parameters.AddWithValue("$userId", userId);
+            command.Parameters.AddWithValue("$semesterId", semesterId);
 
             using var reader = command.ExecuteReader();
 
