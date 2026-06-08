@@ -133,6 +133,38 @@ namespace JournalApi.Controllers
                 message = "Пользователь удалён"
             });
         }
+        [Authorize(Roles = "admin")]
+        [HttpGet("teachers")]
+        public IActionResult GetTeachers()
+        {
+            var teachers = new List<object>();
+
+            using var connection =
+                new SqliteConnection("Data Source=Data/диплом.db");
+
+            connection.Open();
+
+            var command = connection.CreateCommand();
+
+            command.CommandText = @"
+        SELECT id, login
+        FROM Users
+        WHERE role = 'teacher'
+    ";
+
+            using var reader = command.ExecuteReader();
+
+            while (reader.Read())
+            {
+                teachers.Add(new
+                {
+                    Id = reader["id"],
+                    Name = reader["login"]
+                });
+            }
+
+            return Ok(teachers);
+        }
     }
     public class AddUserRequest
     {

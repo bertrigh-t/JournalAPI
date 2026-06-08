@@ -6,11 +6,12 @@ namespace JournalAPI.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class SubjectController : ControllerBase
+
+    public class TeacherSubjectsController : ControllerBase
     {
         [Authorize(Roles = "admin")]
-        [HttpGet]
-        public IActionResult GetSubjects()
+        [HttpGet("{userId}")]
+        public IActionResult GetTeacherSubjects(int userId)
         {
             var subjects = new List<object>();
 
@@ -22,10 +23,17 @@ namespace JournalAPI.Controllers
             var command = connection.CreateCommand();
 
             command.CommandText = @"
-        SELECT id, name
-        FROM Subjects
-        ORDER BY name
+        SELECT
+            ts.id,
+            s.id as subject_id,
+            s.name
+        FROM TeacherSubjects ts
+        JOIN Subjects s
+            ON s.id = ts.subject_id
+        WHERE ts.user_id = $userId
     ";
+
+            command.Parameters.AddWithValue("$userId", userId);
 
             using var reader = command.ExecuteReader();
 
@@ -34,6 +42,7 @@ namespace JournalAPI.Controllers
                 subjects.Add(new
                 {
                     Id = reader["id"],
+                    SubjectId = reader["subject_id"],
                     Name = reader["name"]
                 });
             }
@@ -42,7 +51,7 @@ namespace JournalAPI.Controllers
         }
         [Authorize(Roles = "admin")]
         [HttpPost]
-        public IActionResult AddSubject([FromBody] SubjectRequest request)
+        public IActionResult AddTeacherSubject([FromBody] AddTeacherSubjectRequest request)
         {
             using var connection =
                 new SqliteConnection("Data Source=Data/диплом.db");
@@ -52,13 +61,26 @@ namespace JournalAPI.Controllers
             var command = connection.CreateCommand();
 
             command.CommandText = @"
-        INSERT INTO Subjects(name)
-        VALUES($name)
+        INSERT INTO TeacherSubjects
+        (
+            user_id,
+            subject_id
+        )
+        VALUES
+        (
+            $userId,
+            $subjectId
+        )
     ";
 
             command.Parameters.AddWithValue(
-                "$name",
-                request.Name
+                "$userId",
+                request.UserId
+            );
+
+            command.Parameters.AddWithValue(
+                "$subjectId",
+                request.SubjectId
             );
 
             command.ExecuteNonQuery();
@@ -66,32 +88,8 @@ namespace JournalAPI.Controllers
             return Ok();
         }
         [Authorize(Roles = "admin")]
-        [HttpPut("{id}")]
-        public IActionResult UpdateSubject(int id, [FromBody] SubjectRequest request)
-        {
-            using var connection =
-                new SqliteConnection("Data Source=Data/диплом.db");
-
-            connection.Open();
-
-            var command = connection.CreateCommand();
-
-            command.CommandText = @"
-        UPDATE Subjects
-        SET name = $name
-        WHERE id = $id
-    ";
-
-            command.Parameters.AddWithValue("$id", id);
-            command.Parameters.AddWithValue("$name", request.Name);
-
-            command.ExecuteNonQuery();
-
-            return Ok();
-        }
-        [Authorize(Roles = "admin")]
         [HttpDelete("{id}")]
-        public IActionResult DeleteSubject(int id)
+        public IActionResult DeleteTeacherSubject(int id)
         {
             using var connection =
                 new SqliteConnection("Data Source=Data/диплом.db");
@@ -100,10 +98,8 @@ namespace JournalAPI.Controllers
 
             var command = connection.CreateCommand();
 
-            command.CommandText = @"
-        DELETE FROM Subjects
-        WHERE id = $id
-    ";
+            command.CommandText =
+                "DELETE FROM TeacherSubjects WHERE id = $id";
 
             command.Parameters.AddWithValue("$id", id);
 
@@ -112,8 +108,10 @@ namespace JournalAPI.Controllers
             return Ok();
         }
     }
-    public class SubjectRequest
+    public class AddTeacherSubjectRequest
     {
-        public string Name { get; set; } = "";
+        public int UserId { get; set; }
+
+        public int SubjectId { get; set; }
     }
 }

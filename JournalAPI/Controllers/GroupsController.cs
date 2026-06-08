@@ -96,7 +96,7 @@ namespace JournalApi.Controllers
         WHERE j.group_id = $groupId
         AND j.semester_id = $semesterId
         AND j.user_id = $userId
-    ";
+            ";
 
             command.Parameters.AddWithValue("$groupId", groupId);
             command.Parameters.AddWithValue("$userId", userId);
