@@ -9,103 +9,149 @@ namespace JournalApi.Controllers
     [Route("[controller]")]
     public class ScheduleController : ControllerBase
     {
+        private const string ConnStr = "Data Source=Data/диплом.db";
         [Authorize]
-        [HttpGet("group/{groupId}")]
-        public IActionResult GetScheduleByGroup(int groupId)
+        [HttpGet]
+        public IActionResult GetSchedule(int groupId, int semesterId)
         {
-            var schedule = new List<object>();
+            var result = new List<object>();
 
-            using var connection = new SqliteConnection("Data Source=Data/диплом.db");
+            using var connection = new SqliteConnection(ConnStr);
             connection.Open();
 
             var command = connection.CreateCommand();
+
             command.CommandText = @"
-                SELECT 
-                    sch.id,
-                    sch.day_of_week,
-                    sch.lesson_number,
-                    sch.start_time,
-                    sch.end_time,
-                    sch.classroom,
-                    sub.name AS subject
-                FROM Schedule sch
-                JOIN Journals j ON sch.journal_id = j.id
-                JOIN Subjects sub ON j.subject_id = sub.id
-                WHERE j.group_id = $groupId
-                ORDER BY sch.day_of_week, sch.lesson_number
-            ";
+            SELECT 
+                sc.id,
+                sc.day_of_week,
+                sc.time,
+                g.name AS group_name,
+                s.name AS subject_name,
+                u.login AS teacher_name
+            FROM Schedule sc
+            JOIN Groups g ON sc.group_id = g.id
+            JOIN Subjects s ON sc.subject_id = s.id
+            JOIN Users u ON sc.teacher_id = u.id
+            WHERE sc.group_id = $groupId
+              AND sc.semester_id = $semesterId
+            ORDER BY sc.day_of_week, sc.time
+        ";
 
             command.Parameters.AddWithValue("$groupId", groupId);
+            command.Parameters.AddWithValue("$semesterId", semesterId);
 
             using var reader = command.ExecuteReader();
 
             while (reader.Read())
             {
-                schedule.Add(new
+                result.Add(new  
                 {
-                    id = reader["id"],
-                    dayOfWeek = reader["day_of_week"],
-                    lessonNumber = reader["lesson_number"],
-                    startTime = reader["start_time"],
-                    endTime = reader["end_time"],
-                    classroom = reader["classroom"],
-                    subject = reader["subject"]
+                    Id = reader["id"],
+                    DayOfWeek = reader["day_of_week"],
+                    Time = reader["time"],
+                    Group = reader["group_name"],
+                    Subject = reader["subject_name"],
+                    Teacher = reader["teacher_name"]
                 });
             }
 
-            return Ok(schedule);
+            return Ok(result);
         }
-        [Authorize(Roles = "student")]
-        [HttpGet("student")]
-        public IActionResult GetStudentSchedule()
+        [Authorize(Roles = "admin")]
+        [HttpPost]
+        public IActionResult AddSchedule([FromBody] AddScheduleRequest request)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-            if (userId == null)
-                return Unauthorized();
-
-            var schedule = new List<object>();
-
-            using var connection = new SqliteConnection("Data Source=Data/диплом.db");
+            using var connection = new SqliteConnection(ConnStr);
             connection.Open();
 
             var command = connection.CreateCommand();
+
             command.CommandText = @"
-        SELECT 
-            sch.id,
-            sch.day_of_week,
-            sch.lesson_number,
-            sch.start_time,
-            sch.end_time,
-            sch.classroom,
-            sub.name AS subject
-        FROM Schedule sch
-        JOIN Journals j ON sch.journal_id = j.id
-        JOIN Subjects sub ON j.subject_id = sub.id
-        JOIN Students st ON j.group_id = st.group_id
-        WHERE st.user_id = $userId
-        ORDER BY sch.day_of_week, sch.lesson_number
-    ";
+            INSERT INTO Schedule
+            (group_id, subject_id, teacher_id, semester_id, day_of_week, time)
+            VALUES
+            ($groupId, $subjectId, $teacherId, $semesterId, $day, $time)
+        ";
 
-            command.Parameters.AddWithValue("$userId", userId);
+            command.Parameters.AddWithValue("$groupId", request.GroupId);
+            command.Parameters.AddWithValue("$subjectId", request.SubjectId);
+            command.Parameters.AddWithValue("$teacherId", request.TeacherId);
+            command.Parameters.AddWithValue("$semesterId", request.SemesterId);
+            command.Parameters.AddWithValue("$day", request.DayOfWeek);
+            command.Parameters.AddWithValue("$time", request.Time);
 
-            using var reader = command.ExecuteReader();
+            command.ExecuteNonQuery();
 
-            while (reader.Read())
-            {
-                schedule.Add(new
-                {
-                    id = reader["id"],
-                    dayOfWeek = reader["day_of_week"],
-                    lessonNumber = reader["lesson_number"],
-                    startTime = reader["start_time"],
-                    endTime = reader["end_time"],
-                    classroom = reader["classroom"],
-                    subject = reader["subject"]
-                });
-            }
-
-            return Ok(schedule);
+            return Ok(new { message = "Расписание добавлено" });
         }
+        [Authorize(Roles = "admin")]
+        [HttpPut("{id}")]
+        public IActionResult UpdateSchedule(int id, [FromBody] AddScheduleRequest request)
+        {
+            using var connection = new SqliteConnection(ConnStr);
+            connection.Open();
+
+            var command = connection.CreateCommand();
+
+            command.CommandText = @"
+            UPDATE Schedule
+            SET group_id = $groupId,
+                subject_id = $subjectId,
+                teacher_id = $teacherId,
+                semester_id = $semesterId,
+                day_of_week = $day,
+                time = $time
+            WHERE id = $id
+        ";
+
+            command.Parameters.AddWithValue("$id", id);
+            command.Parameters.AddWithValue("$groupId", request.GroupId);
+            command.Parameters.AddWithValue("$subjectId", request.SubjectId);
+            command.Parameters.AddWithValue("$teacherId", request.TeacherId);
+            command.Parameters.AddWithValue("$semesterId", request.SemesterId);
+            command.Parameters.AddWithValue("$day", request.DayOfWeek);
+            command.Parameters.AddWithValue("$time", request.Time);
+
+            var rows = command.ExecuteNonQuery();
+
+            if (rows == 0)
+                return NotFound();
+
+            return Ok(new { message = "Обновлено" });
+        }
+        [Authorize(Roles = "admin")]
+        [HttpDelete("{id}")]
+        public IActionResult DeleteSchedule(int id)
+        {
+            using var connection = new SqliteConnection(ConnStr);
+            connection.Open();
+
+            var command = connection.CreateCommand();
+
+            command.CommandText = @"
+            DELETE FROM Schedule
+            WHERE id = $id
+        ";
+
+            command.Parameters.AddWithValue("$id", id);
+
+            var rows = command.ExecuteNonQuery();
+
+            if (rows == 0)
+                return NotFound();
+
+            return Ok(new { message = "Удалено" });
+        }
+    }
+    public class AddScheduleRequest
+    {
+        public int GroupId { get; set; }
+        public int SubjectId { get; set; }
+        public int TeacherId { get; set; }
+        public int SemesterId { get; set; }
+
+        public int DayOfWeek { get; set; }
+        public string Time { get; set; } = "";
     }
 }

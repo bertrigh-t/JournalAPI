@@ -19,11 +19,11 @@ namespace JournalApi.Controllers
 
             var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT id, login
-                FROM Users
-                WHERE role = 'teacher'
-            ";
-
+    SELECT t.id, t.name
+    FROM Teachers t
+    JOIN Users u ON t.user_id = u.id
+    WHERE u.role = 'teacher'
+";
             using var reader = command.ExecuteReader();
 
             while (reader.Read())
@@ -31,7 +31,7 @@ namespace JournalApi.Controllers
                 teachers.Add(new
                 {
                     id = reader["id"],
-                    login = reader["login"]
+                    name = reader["name"]
                 });
             }
 
