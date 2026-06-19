@@ -44,7 +44,7 @@ namespace JournalApi.Controllers
 
             var token = new JwtSecurityToken(
                 claims: claims,
-                expires: DateTime.Now.AddHours(1),
+                expires: DateTime.Now.AddMonths(2),
                 signingCredentials: creds
             );
 

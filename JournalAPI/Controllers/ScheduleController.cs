@@ -22,22 +22,22 @@ namespace JournalApi.Controllers
             var command = connection.CreateCommand();
 
             command.CommandText = @"
-            SELECT 
-                sc.id,
-                sc.day_of_week,
-                sc.time,
-                g.name AS group_name,
-                s.name AS subject_name,
-                u.login AS teacher_name
-            FROM Schedule sc
-            JOIN Groups g ON sc.group_id = g.id
-            JOIN Subjects s ON sc.subject_id = s.id
-            JOIN Users u ON sc.teacher_id = u.id
-            WHERE sc.group_id = $groupId
-              AND sc.semester_id = $semesterId
-            ORDER BY sc.day_of_week, sc.time
-        ";
-
+    SELECT 
+        sc.id,
+        sc.day_of_week,
+        sc.time,
+        sc.number,                -- новое поле
+        g.name AS group_name,
+        s.name AS subject_name,
+        t.name AS teacher_name
+    FROM Schedule sc
+    JOIN Groups g ON sc.group_id = g.id
+    JOIN Subjects s ON sc.subject_id = s.id
+    JOIN Teachers t ON sc.teacher_id = t.id
+    WHERE sc.group_id = $groupId
+      AND sc.semester_id = $semesterId
+    ORDER BY sc.day_of_week, sc.number   -- сортировка по номеру
+";
             command.Parameters.AddWithValue("$groupId", groupId);
             command.Parameters.AddWithValue("$semesterId", semesterId);
 
@@ -50,6 +50,7 @@ namespace JournalApi.Controllers
                     Id = reader["id"],
                     DayOfWeek = reader["day_of_week"],
                     Time = reader["time"],
+                    Number = reader["number"],
                     Group = reader["group_name"],
                     Subject = reader["subject_name"],
                     Teacher = reader["teacher_name"]
@@ -69,9 +70,9 @@ namespace JournalApi.Controllers
 
             command.CommandText = @"
             INSERT INTO Schedule
-            (group_id, subject_id, teacher_id, semester_id, day_of_week, time)
+            (group_id, subject_id, teacher_id, semester_id, day_of_week, time, number)
             VALUES
-            ($groupId, $subjectId, $teacherId, $semesterId, $day, $time)
+            ($groupId, $subjectId, $teacherId, $semesterId, $day, $time, $number)
         ";
 
             command.Parameters.AddWithValue("$groupId", request.GroupId);
@@ -80,6 +81,7 @@ namespace JournalApi.Controllers
             command.Parameters.AddWithValue("$semesterId", request.SemesterId);
             command.Parameters.AddWithValue("$day", request.DayOfWeek);
             command.Parameters.AddWithValue("$time", request.Time);
+            command.Parameters.AddWithValue("$number", request.Number);
 
             command.ExecuteNonQuery();
 
@@ -102,6 +104,7 @@ namespace JournalApi.Controllers
                 semester_id = $semesterId,
                 day_of_week = $day,
                 time = $time
+                number = $number
             WHERE id = $id
         ";
 
@@ -112,6 +115,8 @@ namespace JournalApi.Controllers
             command.Parameters.AddWithValue("$semesterId", request.SemesterId);
             command.Parameters.AddWithValue("$day", request.DayOfWeek);
             command.Parameters.AddWithValue("$time", request.Time);
+            command.Parameters.AddWithValue("$number", request.Number);
+
 
             var rows = command.ExecuteNonQuery();
 
@@ -150,8 +155,8 @@ namespace JournalApi.Controllers
         public int SubjectId { get; set; }
         public int TeacherId { get; set; }
         public int SemesterId { get; set; }
-
         public int DayOfWeek { get; set; }
         public string Time { get; set; } = "";
+        public int Number { get; set; }
     }
 }
