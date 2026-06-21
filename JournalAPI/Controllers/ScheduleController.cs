@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 
 namespace JournalApi.Controllers
 {
@@ -36,7 +37,7 @@ namespace JournalApi.Controllers
     JOIN Teachers t ON sc.teacher_id = t.id
     WHERE sc.group_id = $groupId
       AND sc.semester_id = $semesterId
-    ORDER BY sc.day_of_week, sc.number   -- сортировка по номеру
+    ORDER BY sc.day_of_week, sc.number 
 ";
             command.Parameters.AddWithValue("$groupId", groupId);
             command.Parameters.AddWithValue("$semesterId", semesterId);
@@ -59,6 +60,54 @@ namespace JournalApi.Controllers
 
             return Ok(result);
         }
+        [Authorize]
+        [HttpGet("{id}")]
+        public IActionResult GetSchedule(int id)
+        {
+            var result = new List<object>();
+
+            using var connection = new SqliteConnection(ConnStr);
+            connection.Open();
+
+            var command = connection.CreateCommand();
+
+            command.CommandText = @"
+    SELECT 
+        sc.id,
+        sc.day_of_week,
+        sc.time,
+        sc.number,                -- новое поле
+        g.name AS group_name,
+        s.name AS subject_name,
+        t.name AS teacher_name
+    FROM Schedule sc
+    JOIN Groups g ON sc.group_id = g.id
+    JOIN Subjects s ON sc.subject_id = s.id
+    JOIN Teachers t ON sc.teacher_id = t.id
+    WHERE sc.id = $scheduleId
+    ORDER BY sc.day_of_week, sc.number 
+";
+            command.Parameters.AddWithValue("$scheduleId", id);
+
+            using var reader = command.ExecuteReader();
+
+            while (reader.Read())
+            {
+                result.Add(new
+                {
+                    Id = reader["id"],
+                    DayOfWeek = reader["day_of_week"],
+                    Time = reader["time"],
+                    Number = reader["number"],
+                    Group = reader["group_name"],
+                    Subject = reader["subject_name"],
+                    Teacher = reader["teacher_name"]
+                });
+            }
+
+            return Ok(result);
+        }
+
         [Authorize(Roles = "admin")]
         [HttpPost]
         public IActionResult AddSchedule([FromBody] AddScheduleRequest request)
