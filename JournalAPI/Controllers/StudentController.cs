@@ -97,5 +97,43 @@ namespace JournalApi.Controllers
 
             return Ok(attendance);
         }
+        [Authorize(Roles = "student")]
+        [HttpGet("me")]
+        public IActionResult GetMe()
+        {
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
+
+            int userId = int.Parse(userIdClaim);
+
+            using var connection =
+                new SqliteConnection("Data Source=Data/диплом.db");
+
+            connection.Open();
+
+            var command = connection.CreateCommand();
+            command.CommandText = @"
+        SELECT id, name, group_id, user_id
+        FROM Students
+        WHERE user_id = $userId
+    ";
+            command.Parameters.AddWithValue("$userId", userId);
+
+            using var reader = command.ExecuteReader();
+
+            if (!reader.Read())
+                return NotFound("Студент не найден");
+
+            return Ok(new
+            {
+                Id = Convert.ToInt32(reader["id"]),
+                Name = reader["name"]?.ToString() ?? "",
+                GroupId = reader["group_id"] == DBNull.Value ? 0 : Convert.ToInt32(reader["group_id"]),
+                UserId = Convert.ToInt32(reader["user_id"])
+            });
+        }
+
     }
 }

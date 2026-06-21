@@ -107,7 +107,55 @@ namespace JournalApi.Controllers
 
             return Ok(result);
         }
+        [Authorize]
+        [HttpGet("group/{groupId}")]
+        public IActionResult GetByGroup(int groupId)
+        {
+            var schedule = new List<object>();
 
+            using var connection =
+                new SqliteConnection("Data Source=Data/диплом.db");
+
+            connection.Open();
+
+            var command = connection.CreateCommand();
+            command.CommandText = @"
+        SELECT 
+            s.id,
+            s.day_of_week,
+            s.time,
+            s.number,
+            sub.name AS subject,
+            g.name AS [group],
+            t.name AS teacher
+        FROM Schedule s
+        JOIN Subjects sub ON sub.id = s.subject_id
+        JOIN Groups g ON g.id = s.group_id
+        JOIN Teachers t ON t.id = s.teacher_id
+        WHERE s.group_id = $groupId
+        ORDER BY s.day_of_week, s.number
+    ";
+
+            command.Parameters.AddWithValue("$groupId", groupId);
+
+            using var reader = command.ExecuteReader();
+
+            while (reader.Read())
+            {
+                schedule.Add(new
+                {
+                    Id = Convert.ToInt32(reader["id"]),
+                    DayOfWeek = Convert.ToInt32(reader["day_of_week"]),
+                    Time = reader["time"]?.ToString() ?? "",
+                    Number = Convert.ToInt32(reader["number"]),
+                    Subject = reader["subject"]?.ToString() ?? "",
+                    Group = reader["group"]?.ToString() ?? "",
+                    Teacher = reader["teacher"]?.ToString() ?? ""
+                });
+            }
+
+            return Ok(schedule);
+        }
         [Authorize(Roles = "admin")]
         [HttpPost]
         public IActionResult AddSchedule([FromBody] AddScheduleRequest request)
